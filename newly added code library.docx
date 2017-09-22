@@ -1,8 +1,8 @@
 ﻿New added topics:
 Graph:
 1. Heavy Light Decomposition
-2. k shortest path( not included)
-3. 2nd MST( not included);
+2. k shortest path
+3. 2nd MST( nlogn );
 4. Floyed warshall( not included);
 5. Bellman Ford;
 6. Stable Mariage;
@@ -12,24 +12,29 @@ DS:
 2. 2D Segmentree( n*(logn)^2);
 3. LCA;
 4. Trie;
-5. 2D BIT(not included);
+5. 2D BIT;
+6. RMQ 1D;
+7. RMQ 2D;
+8. MO’s && Sqrt Decomposition
+9. Implicit Segment Tree
+10. Union find
 
 Game Theory:
 1. Grundy
 Math:
 1. Egcd;
-2. CRT(not included);
+
 
 String:
 1.KMP;
-2. suffix tree(not included);
+
 
 Geo:
-1. Templates
+
 
 DP:
 1. Digit Dp
-
+2. Mat. Expo
 
 
 
@@ -712,6 +717,132 @@ void bellman( int s)
         return 0;
     }
 
+************ 2nd best MST***********
+const int mxn = 1e5;
+int parent[mxn] , level[mxn];
+typedef long long ll;
+typedef pair< int , ll > pil;
+typedef vector< pil > vpil;
+pil sparse[mxn][22] ;
+vpil adj[mxn];
+ll mstCost , mstCount;
+bool vis[mxn];
+int n , m;
+struct node 
+{
+	int u ,v ;
+	ll w;
+};
+vector< node > gE , uE;
+bool operator <(node a , node b)
+{
+	return a.w < b.w;
+}
+void dfs(int u , int prev, ll cost , int depth)
+{
+	sparse[u][0].first = prev;
+	sparse[u][0].second = cost;
+	level[u] = depth;
+	for(int i = 0; i < adj[u].size(); i++)
+	{
+		int v = adj[u][i].first;
+		ll w = adj[u][i].second;
+		if(v != prev)
+		{
+			dfs(v , u , w , depth+1);
+		}
+	}
+} 
+void sparse_table()
+{
+	for(int j = 1; (1<<j) <= n; j++)
+	{
+		for(int i= 1; i <= n; i++)
+		{
+			if(sparse[i][j-1].first!=-1)
+			{
+				sparse[i][j].first = sparse[sparse[i][j-1].first][j-1].first;
+				sparse[i][j].second = max(sparse[i][j-1].second ,sparse[sparse[i][j-1].first][j-1].second);
+			}
+		}
+	}
+}
+ll query(int p , int q)
+{
+	if(level[p] < level[q])
+	{
+		swap(p , q);
+	}
+	int log = 1;
+	while( (1 <<log) <= level[p])
+	log++;
+	log-=1;
+	ll ret = INT_MIN;
+	for(int i  = log; i >=0; i--)
+	{
+		if( (level[p] -(1<<i)) >= level[q])
+		{
+			ret = max(ret , sparse[p][i].second);
+			p = sparse[p][i].first;
+		}
+	}
+	if(p==q)
+	return ret;
+	for(int i = log; i >= 0; i--)
+	{
+		if(sparse[p][i].first!= -1 && sparse[q][i].first!=-1 && sparse[p][i].first != sparse[q][i].first)
+		{
+			ret = max(ret , max(sparse[p][i].second , sparse[q][i].second));
+			p = sparse[p][i].first;
+			q = sparse[q][i].first;
+		}
+	}
+	ret = max(ret , max(sparse[p][0].second , sparse[q][0].second));
+	return ret;
+}
+int find(int u)
+{
+	if(parent[u]==u)
+	return u;
+	return parent[u] = find(parent[u]);
+}
+void krs()
+{
+	for(int i= 0; i < mxn ; i++)
+	parent[i] = i;
+	sort(gE.begin() , gE.end());
+	for(int i = 0; i < gE.size(); i++)
+	{
+		if(find(gE[i].u) != find(gE[i].v))
+		{
+			mstCost +=gE[i].w;
+			mstCount+=1;
+			parent[parent[gE[i].u]] = parent[gE[i].v];
+			vis[i] = true;
+		}
+	}
+}
+int main()
+{
+	int tc;
+	cin>>tc;
+	int cs = 0;
+	while(tc--)
+	{
+		cs++;
+		gE.clear();
+		uE.clear();
+		for(int i = 0; i < mxn; i++)
+		adj[i].clear();
+		memset(sparse , -1 , sizeof sparse);
+		memset(level , 0 , sizeof level);
+		mstCost = 0;
+		mstCount = 0;
+		memset(vis , false , sizeof vis);
+	}
+	
+	return 0;
+}
 
 
 #################### DS ####################
@@ -1111,10 +1242,277 @@ void del(node *current)
 }
 
 
+*********2D BIT******
+const int mxn = 1008;
+int bit[mxn+3][mxn+3];
+bool vis[mxn+3][mxn+3];
+void update(int idx , int idy , int v)
+{
+    int x = idx;
+    while(x <= mxn)
+    {
+        int y = idy;
+        while( y <= mxn)
+        {
+            bit[x][y] +=v;
+            y += (y&-y);
+        }
+        x += (x&-x);		
+    }
+}
+int query(int idx ,int idy)
+{
+    int ret = 0;
+    int x = idx;
+    while(x)
+    {
+        int y = idy;
+        while(y)
+        {
+            ret += bit[x][y];
+            y -= (y&-y);
+        }
+        x -= (x&-x);
+    }
+    return ret;
+}
+int solve(int x1 , int y1 , int x2 , int y2)
+{
+    int ans = query(x2 , y2) - query(x2 , y1-1) - query(x1-1 , y2) + query(x1-1 , y1-1);
+    return ans;
+}
 
+*********** 1D RMQ ***********
+const int mxn = 1e5;
+#define MOD 1e9+7
+int n , m;
+int ar[mxn+10];
+int table[20][mxn+10];
+void RMQ()
+{
+	for(int ir = 0; ir < n; ir++)
+	{
+		table[0][ir] = ar[ir];
+	}
+	for(int jr = 1 ; (1<<jr) <= n; jr++)
+	{
+		for(int ir = 0; ir + (1<<jr)-1 < n ; ir++)
+		{
+			table[jr][ir] = min(table[jr-1][ir] , table[jr-1][ir+(1<<(jr-1))]);
+		}
+	}
+}
+int query(int x , int y)
+{
+	int len = y-x+1;
+	len = log(double(len))/log(2.0D);
+	return min( table[len][x] , table[len][y+1- (1<<len)]);
+}
+
+
+*********** 2D RMQ ***********
+typedef long long ll;
+typedef pair< int , int > pii;
+typedef vector< int > vi;
+
+#define rept(i , n) for(int i = 0;  i < n ; i++)
+#define loop(i, n) for(int i = 1;  i <= n ; i++)
+
+const int mxn = 1e3;
+#define MOD 1e9+7
+int ar[mxn+10][mxn+10] ;
+int spTable[12][12][mxn+10][mxn+10];
+int n ,m;
+ll sum[mxn+10][mxn+10];
+void RMQ()
+{
+	for(int jr =0; (1 << jr) <= n; jr++)
+	{
+		for(int jc = 0; (1 << jc) <= m ; jc++)
+		{
+			for(int ir = 0; ir+(1<<jr)-1 < n; ir++)
+			{
+				for(int ic =0; ic+(1<<jc)-1 < m; ic++)
+				{
+					if(jr==0 && jc == 0)
+					{
+						spTable[jr][jc][ir][ic] = ar[ir][ic];
+					}
+					else if(jr==0)
+					{
+						spTable[jr][jc][ir][ic] = max( spTable[jr][jc-1][ir][ic] , spTable[jr][jc-1][ir][ic+(1<<(jc-1))]);
+					}
+					else if(jc==0)
+					{
+						spTable[jr][jc][ir][ic] = max( spTable[jr-1][jc][ir][ic] , spTable[jr-1][jc][ir+(1<<(jr-1))][ic]);
+					}
+					else
+					{
+						spTable[jr][jc][ir][ic] = max( spTable[jr-1][jc-1][ir][ic], max( spTable[jr-1][jc-1][ir + (1<<(jr-1))][ic],max(spTable[jr-1][jc-1][ir][ic+(1<<(jc-1))] , spTable[jr-1][jc-1][ir+(1<<(jr-1))][ic+(1<<(jc-1))])));
+					}
+				}
+			}
+		}
+	} 
+}
+ll query(int x1 , int y1 , int x2, int y2)
+{
+	int lenx = x2 - x1+1;
+	int leny = y2 - y1 + 1;
+	lenx = log( (double)lenx)/log(2.0D);
+	leny = log((double)leny) / log(2.0D);
+	ll ans = max( (long long)spTable[lenx][leny][x1][y1] ,(long long) spTable[lenx][leny][x1][y2+1-(1<<leny)]);
+	ans = max( ans ,(long long) max( (long long)spTable[lenx][leny][x2+1-(1<<lenx)][y1] , (long long)spTable[lenx][leny][x2+1-(1 << lenx)][y2+1-(1 << leny)]));
+	return ans;
+}
+
+******** Sqrt Decomposition *******
+const int mxn = 100000;
+struct data
+{
+	int st , en;
+	deque<int > dq;
+	int fr[mxn+3];
+} backet[325];
+int ar[mxn+3] , bcnt ;
+int const lm = 1500;
+void decomposition(int n)
+{
+	bcnt = 0;
+	for(int i =0 , c = 0; i <  n ; i++, c++)
+	{
+		if(c==lm)
+		{
+			backet[bcnt].en = i-1;
+			c = 0;
+			bcnt++;
+			backet[bcnt].st = i;
+		}
+		backet[bcnt].dq.push_back(ar[i]);
+		backet[bcnt].fr[ar[i]]++;
+	}
+	backet[bcnt].en = n-1;
+}
+void update(int l , int r)
+{
+	int lb = (int)l/lm;
+	int rb = (int) r/lm;
+	int val = backet[rb].dq[r-backet[rb].st];
+	backet[rb].dq.erase( backet[rb].dq.begin()+ r%lm);
+	backet[rb].fr[val]--;
+	backet[lb].dq.insert(backet[lb].dq.begin()+l%lm, val);
+	backet[lb].fr[val]++;
+	for(int i = lb+1; i <= rb; i++)
+	{
+		backet[i].dq.push_front(backet[i-1].dq.back());
+		backet[i].fr[backet[i].dq.front()]++;
+		backet[i-1].fr[backet[i].dq.front()]--;
+		backet[i-1].dq.pop_back();
+	}
+}
+int query(int l , int r , int k)
+{
+	int lb = (int) l/lm;
+	int rb = (int) r/lm;
+	int ret = 0;
+	for(int i = l - backet[lb].st; i <= min( backet[lb].en - backet[lb].st  , r - backet[lb].st); i++)
+	{
+		ret +=(backet[lb].dq[i]==k);
+	}
+	if(lb!=rb){
+	for(int i = 0; i <= r - backet[rb].st; i++)
+	{
+		ret += (backet[rb].dq[i]==k);
+	}
+	for(int i = lb+1; i < rb; i++)
+	{
+		ret += backet[i].fr[k];
+	}
+}
+	return ret;
+	
+}
+
+********************* MO’s *************
+			int left = 0;
+			int right = -1;			
+			while(right < p.first)
+			{
+				right++;
+				add(right);
+			}
+			while(right > p.first)
+			{
+				remov(right);
+				right--;
+			}
+			while(left< p.second)
+			{
+				
+				remov(left);
+				left++;
+			}
+			
+			while(left > p.second)
+			{
+				left--;
+				add(left);
+			}
+************* Implicit Segment Tree********
+typedef long long ll;
+const ll mod = 1e9+7;
+struct NODE
+{
+	ll sum;
+	NODE* left , *right;
+	NODE()
+	{
+		left = NULL;
+		right = NULL;
+		sum = 0;
+	}
+};
+
+void update(NODE *node , ll beg , ll endd , ll pos , ll val)
+{
+	if(beg==pos&&endd==pos)
+	{
+		node->sum =val;
+		return;
+	}
+	ll mid = (beg + endd)>>1;
+	if(node->left==NULL)
+	{
+		node->left = new NODE();
+	}
+	if(node->right==NULL)
+	{
+		node->right = new NODE();
+	}
+	if(pos <= mid)
+		update(node->left, beg , mid , pos , val);
+	else
+	{
+		update(node->right, mid+1, endd , pos , val);
+	}
+	node->sum = node->left->sum + node->right->sum;
+	return;
+}
+ll query(NODE* node , ll beg ,ll endd, ll l , ll r)
+{
+	if(node == NULL || l > r)
+	return 0;
+	if(l==beg && endd==r)
+	return node->sum;
+	ll mid = (beg+endd)>>1;
+	ll r1 =query(node->left , beg, mid, l , min(mid,r));
+	ll r2= query(node->right, mid+1, endd, max(l, mid+1), r);
+	return r1+r2;
+}
 
 
 Game Theory:
+****** Grundy ******
 int g[10005], pile[110];
  
 int Mex( set<int> s)
@@ -1246,3 +1644,65 @@ ll solve(ll n)
 	tt++;
 	return digitDP(0 , false, false , 0)+1;
 }
+******* Mat. Expo****
+const int mxn = 2;
+typedef unsigned long long ull;
+struct Matrix
+{
+	ull mat[mxn][mxn];
+};
+Matrix mul(Matrix a , Matrix b)
+{
+	Matrix ans;
+	for(int i = 0; i < mxn; i++)
+	{
+		for(int j = 0; j < mxn; j++)
+		{
+			ans.mat[i][j] = 0;
+			for(int k = 0; k < mxn; k++)
+			{
+				ans.mat[i][j] += a.mat[i][k]*b.mat[k][j];
+			}
+		}
+	}
+	return ans;
+}
+Matrix expo(Matrix base , int p)
+{
+	if(p==0)
+	{
+		Matrix ret;
+		for(int i = 0; i < mxn; i++)
+		{
+			for(int j = 0; j < mxn; j++)
+			{
+				ret.mat[i][j] = (i==j);
+			}
+		}
+		return ret;
+	}
+	Matrix x = expo(base , p/2);
+	x= mul(x , x);
+	if(p&1)
+	{
+		x = mul(x , base);
+	}
+	return x;
+}
+
+MATH:
+*********** EGCD **********
+void extendedEuclid(int A, int B) {
+    if(B == 0) {
+        d = A;
+        x = 1;
+        y = 0;
+    }
+    else {
+        extendedEuclid(B, A%B);
+        int temp = x;
+        x = y;
+        y = temp - (A/B)*y;
+    }
+}
+
