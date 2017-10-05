@@ -1,0 +1,1708 @@
+﻿New added topics:
+Graph:
+1. Heavy Light Decomposition
+2. k shortest path
+3. 2nd MST( nlogn );
+4. Floyed warshall( not included);
+5. Bellman Ford;
+6. Stable Mariage;
+
+DS:
+1. Segment tree(range sum, lazy propagation);
+2. 2D Segmentree( n*(logn)^2);
+3. LCA;
+4. Trie;
+5. 2D BIT;
+6. RMQ 1D;
+7. RMQ 2D;
+8. MO’s && Sqrt Decomposition
+9. Implicit Segment Tree
+10. Union find
+
+Game Theory:
+1. Grundy
+Math:
+1. Egcd;
+
+
+String:
+1.KMP;
+
+
+Geo:
+
+
+DP:
+1. Digit Dp
+2. Mat. Expo
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Graph:
+*****Heavy Light Decomposition*********
+*1348-Aladin and the return journey
+#include<bits/stdc++.h>
+using namespace std;
+#define MXN 100005
+vector< int > adj[MXN];
+int ar[MXN] , N;
+int parent[MXN] , level[MXN] , subSize[MXN] , chainHead[MXN] , chainInd[MXN] , baseArray[MXN] , posInBaseArray[MXN];
+int baseCount = -1,chainNo = 0;
+int sparse[MXN][22];
+int tree[6*MXN];
+void dfs(int cur , int prev , int depth)
+{
+    parent[cur] = prev;
+    level[cur] = depth;
+    subSize[cur] = 1;
+    int sz = adj[cur].size();
+    for(int i= 0; i < sz ; i++)
+    {
+        if(adj[cur][i] != prev )
+        {
+            dfs(adj[cur][i] , cur , depth+1);
+            subSize[cur] += subSize[adj[cur][i]];
+        }
+    }
+}
+void hld(int cur , int prev)
+{
+    if(chainHead[chainNo] == -1)
+        chainHead[chainNo] = cur;
+    chainInd[cur] = chainNo;
+    baseArray[++baseCount] = ar[cur];
+    posInBaseArray[cur] = baseCount;
+
+    int sz = adj[cur].size();
+    int ind = -1 , maxi = -1;
+    for(int i = 0; i < sz ; i++)
+    {
+        if(subSize[adj[cur][i]] > maxi && prev != adj[cur][i])
+        {
+            ind = i;
+            maxi = subSize[adj[cur][i]];
+        }
+    }
+
+    if(ind >= 0)
+    {
+        hld( adj[cur][ind] , cur);
+    }
+
+    for(int i = 0; i < sz; i++)
+    {
+        if( i!= ind && adj[cur][i] != prev)
+        {
+            chainNo++;
+            hld(adj[cur][i] , cur);
+        }
+    }
+}
+void lca_init()
+{
+    memset(sparse , -1 , sizeof(sparse));
+    for(int i = 0; i < N ; i++)
+        sparse[i][0] = parent[i];
+    for(int j = 1; (1 << j) < N ;j++ )
+    {
+        for(int i = 0; i < N ; i++)
+        {
+            if(sparse[i][j-1]!=-1)
+            sparse[i][j] = sparse[sparse[i][j-1]][j-1];
+        }
+    }
+}
+int lca_query(int p , int q)
+{
+    if(level[p] < level[q])
+        swap(p , q);
+    int log = 1;
+    while(1)
+    {
+        if( (1 << log) > level[p])
+        {
+            break;
+        }
+        log++;
+    }
+    log -=1;
+
+    for(int i = log ; i >= 0 ; i--)
+    {
+        if( (level[p] - (1 << i)) >= level[q])
+        {
+            p = sparse[p][i];
+        }
+    }
+    if( p == q)
+        return q;
+
+    for(int i = log; i >= 0; i--)
+    {
+        if(sparse[p][i] !=-1 && sparse[p][i]!=sparse[q][i])
+        {
+            p = sparse[p][i];
+            q = sparse[q][i];
+        }
+    }
+    return parent[p];
+}
+
+void make_tree(int node , int beg , int endd)
+{
+    if(beg==endd)
+    {
+        tree[node] = baseArray[beg];
+        return;
+    }
+
+    int left = node << 1;
+    int right = left + 1;
+    int mid = (beg + endd) >> 1;
+
+    make_tree(left , beg , mid);
+    make_tree(right , mid+1 , endd);
+
+    tree[node] = tree[left] + tree[right];
+
+    return;
+}
+
+void update_tree(int node , int beg , int endd , int pos , int val)
+{
+    if(beg == pos && endd == pos)
+    {
+        baseArray[beg] = val;
+        tree[node] = val;
+        return;
+    }
+
+    int left = node << 1;
+    int right = left + 1;
+    int mid = (beg + endd ) >> 1;
+
+    if( mid >= pos)
+    {
+        update_tree(left , beg , mid , pos , val);
+    }
+    else
+    {
+        update_tree(right , mid+1 , endd , pos , val);
+    }
+    tree[node] = tree[left] + tree[right];
+    return;
+}
+
+int query_tree(int node , int beg , int endd , int i , int j)
+{
+   if(i > j)
+        return 0;
+   if(beg == i && endd == j)
+   {
+       return tree[node];
+   }
+
+   int left = node << 1;
+   int right = left + 1;
+   int mid = (beg + endd) >> 1;
+
+   int l = query_tree(left , beg , mid , i ,min( mid , j));
+   int r = query_tree(right , mid+1 , endd , max(i , mid+1 ) , j);
+   return l+r;
+}
+
+int query_up(int u , int v)
+{
+    int ui = chainInd[u];
+    int vi = chainInd[v];
+    if(v == u)
+        return baseArray[posInBaseArray[v]];
+    if(ui == vi)
+    {
+        int up = posInBaseArray[u];
+        int vp = posInBaseArray[v];
+        if(up > vp)
+            swap(up , vp);
+        return query_tree(1 , 0 , baseCount , up , vp);
+    }
+    else
+    {
+        int vh = chainHead[vi];
+        int res1  = query_up(u , parent[vh]);
+        return res1 + query_tree(1 , 0 , baseCount , posInBaseArray[vh] , posInBaseArray[v]);
+    }
+}
+int query(int u , int v)
+{
+    int LCA = lca_query(u , v);
+    int res1 = query_up(LCA , u);
+    int res2 = query_up( LCA , v);
+    return res1 + res2 - baseArray[posInBaseArray[LCA]];
+}
+void change(int pos , int val)
+{
+    int pi = posInBaseArray[pos];
+    update_tree(1 , 0 , baseCount , pi , val);
+    return;
+}
+int main()
+{
+    int tc;
+    scanf("%d",&tc);
+    int cs = 0;
+    while(tc--)
+    {
+        memset(chainHead , -1, sizeof(chainHead));
+        for(int i = 0; i < MXN ; i++)
+            adj[i].clear();
+        baseCount = -1;
+        cs++;
+        scanf("%d",&N);
+        for(int i = 0; i < N; i++)
+            scanf("%d",&ar[i]);
+        int u,v;
+        for(int i = 1; i < N; i++)
+        {
+            scanf("%d %d",&u, &v);
+            adj[u].push_back(v);
+            adj[v].push_back(u);
+        }
+        dfs(0 , -1 , 0);
+        hld(0 , -1);
+        lca_init();
+        make_tree(1 , 0 , baseCount);
+        int q, cmd , a , b;
+        scanf("%d",&q);
+        printf("Case %d:\n", cs);
+        for(int i = 0; i < q; i++)
+        {
+            scanf("%d %d %d",&cmd , &a, &b);
+            if(cmd)
+            {
+                change(a , b);
+            }
+            else
+            {
+                int res = query(a , b);
+                printf("%d\n", res);
+            }
+        }
+    }
+    return 0;
+}
+*QTREE- Query on a tree
+#include<bits/stdc++.h>
+using namespace std;
+#define MXN 100005
+int chainNo = 0, chainInd[MXN] , chainHead[MXN] , chainPos[MXN],chainSize[MXN] , subSize[MXN];
+vector < int > adj[MXN] , costs[MXN];
+int baseArray[MXN] , cnt = -1 , posInBaseArray[MXN];
+int parent[MXN] , level[MXN] , sparse[MXN][22];
+vector< pair<int , int > > vii;
+int tree[MXN*6];
+int N;
+void dfs(int cur , int prev , int depth)
+{
+    //cout<<"node "<<cur<<" parent "<<prev<<" level "<<depth<<endl;
+    parent[cur] = prev;
+    level[cur] = depth;
+    subSize[cur] = 1;
+    int sz = adj[cur].size();
+    for(int i = 0; i < sz; i++)
+    {
+        if(adj[cur][i]!=prev)
+        {
+            dfs(adj[cur][i] , cur , depth+1);
+            subSize[cur] +=subSize[adj[cur][i]];
+        }
+    }
+}
+
+void hld(int cur , int cost , int prev)
+{
+   // cout<<" Edge "<<prev<<"->"<<cur<<" stored "<<cur<<endl;
+    if(chainHead[chainNo] == -1)
+        chainHead[chainNo] = cur;
+   chainInd[cur] = chainNo;
+//   chainPos[cur] = chainSize[chainNo];
+//    chainSize[chainNo]++;
+    posInBaseArray[cur] = ++cnt;
+    baseArray[cnt] = cost;
+
+    int ind = -1 , maxi = -1 , mxc = -1;
+    int sz = adj[cur].size();
+    for(int i = 0 ; i < sz; i++)
+    {
+        if( subSize[adj[cur][i]] > maxi && prev != adj[cur][i])
+        {
+            maxi = subSize[adj[cur][i]] ;
+            ind = i;
+            mxc = costs[cur][ind];
+        }
+    }
+    if(ind >= 0)
+    {
+        hld( adj[cur][ind] , mxc , cur);
+    }
+    for(int i = 0; i < sz; i++)
+    {
+        if(ind != i  && adj[cur][i] != prev)
+        {
+            chainNo++;
+            hld( adj[cur][i] , costs[cur][i] , cur);
+        }
+    }
+    return;
+}
+
+void lca_init()
+{
+    memset(sparse , -1 , sizeof(sparse));
+    for(int i = 1; i <= N; i++)
+        sparse[i][0] = parent[i];
+    for(int j = 1; 1<<j <= N ; j++)
+    {
+        for(int i = 1 ; i <= N; i++)
+        {
+            if(sparse[i][j-1]!=-1)
+            {
+                sparse[i][j] = sparse[sparse[i][j-1]][j-1];
+            }
+        }
+    }
+}
+
+int lca_query( int p , int q)
+{
+    if(level[p]<level[q])
+        swap(p,q);
+    int log = 1;
+    while(1)
+    {
+        if(1 << log > level[p])
+            break;
+        log++;
+    }
+    log -=1;
+    for(int i = log; i>=0 ; i--)
+    {
+        if((level[p] - (1 << i)) >= level[q] )
+        {
+            p = sparse[p][i];
+        }
+    }
+    if(p==q)
+        return p;
+    for(int i = log ; i>= 0; i--)
+    {
+        if(sparse[p][i] != -1 && sparse[p][i] != sparse[q][i])
+        {
+            p = sparse[p][i];
+            q = sparse[q][i];
+        }
+    }
+    return parent[p];
+}
+
+void make_tree(int node , int beg , int endd)
+{
+    if(beg == endd)
+    {
+        tree[node] = baseArray[beg];
+        return;
+    }
+
+    int left = node<<1;
+    int right = left+1;
+    int mid = (beg + endd) >> 1;
+    make_tree(left , beg , mid);
+    make_tree(right , mid+1 , endd);
+    tree[node] = max( tree[left] , tree[right]);
+    return;
+}
+
+void update(int node , int beg , int endd , int pos , int val)
+{
+    if(beg==pos && endd == pos)
+    {
+        //cout<<node<<" "<<beg<<" "<<endd<<" "<<pos<<endl;
+        baseArray[beg] = val;
+        tree[node] = val;
+        return;
+    }
+    int left = node << 1;
+    int right = left + 1;
+    int mid = (beg + endd ) >> 1;
+
+    if(mid >= pos)
+        update(left , beg , mid , pos , val);
+    else
+        update(right , mid+1 , endd , pos , val);
+    tree[node] = max( tree[left] , tree[right]);
+    return;
+}
+
+int query_tree(int node , int beg , int  endd , int i  , int j)
+{
+    if(i > j)
+        return -1;
+    if(beg == i && endd == j)
+    {
+        //cout<<node<<" "<<beg<<" "<<endd<<" "<<tree[node]<<endl;
+        return tree[node];
+    }
+    int left = node << 1;
+    int right = left + 1;
+    int mid = (beg + endd) >>1 ;
+
+    return max(query_tree(left , beg , mid , i , min( j , mid)) , query_tree(right , mid+1 , endd , max( i , mid+1 ) , j));
+}
+
+int query_up(int u , int v)
+{
+    //cout<<u<<" "<<v<<endl;
+    int ui = chainInd[u];
+    int vi = chainInd[v];
+    if(u == v)
+        return 0;
+    if(ui == vi)
+    {
+        int up = posInBaseArray[u];
+        int vp = posInBaseArray[v];
+        if(up > vp)
+            swap( up , vp);
+        return query_tree(1 , 0 , cnt , up+1 , vp );
+    }
+    else
+    {
+        int uh = chainHead[ui];
+        int vh = chainHead[vi];
+       // cout<<vh<<endl;
+        int res1 = query_up(u , parent[vh]);
+        //cout<<baseArray[posInBaseArray[vh]]<<endl;
+        res1 = max(res1 , baseArray[posInBaseArray[vh]]);
+        //cout<<res1<<endl;
+        return  max( query_tree(1 , 0 , cnt , posInBaseArray[vh]+1 , posInBaseArray[v]) , res1);
+    }
+}
+int query(int u , int v)
+{
+    int LCA = lca_query(u , v);
+    //cout<<"LCA "<<LCA<<endl;
+    //cout<<baseArray[posInBaseArray[u]]<<" array value "<<baseArray[posInBaseArray[v]]<<endl;
+    int res1 = query_up(LCA , u);
+    int res2 = query_up(LCA , v);
+    return max( res1 , res2);
+}
+void change(int edge , int val)
+{
+    int u = vii[edge].first;
+    int v = vii[edge].second;
+    int ui = posInBaseArray[u];
+    int vi = posInBaseArray[v];
+    //cout<<ui<<" EDGE "<<vi<<endl;
+    int en;
+    if(ui > vi)
+    {
+        update(1 , 0 , cnt , ui , val);
+    }
+    else
+    {
+        update( 1, 0 , cnt , vi , val);
+    }
+}
+int main()
+{
+    //freopen( "output.txt", "w" , stdout);
+    int tc;
+    scanf("%d",&tc);
+    while(tc--)
+    {
+        cnt = -1;
+        memset(chainHead , -1 , sizeof(chainHead));
+        memset(chainInd , 0 , sizeof(chainInd));
+        memset(subSize , 0 , sizeof(subSize));
+        memset(parent , 0 , sizeof(parent));
+        memset(level , 0 , sizeof(level));
+         scanf("%d",&N);
+        int u , v, c;
+        for(int i = 1; i < N ; i++)
+        {
+            cin>>u>>v>>c;
+            adj[u].push_back(v);
+            costs[u].push_back(c);
+            adj[v].push_back(u);
+            costs[v].push_back(c);
+            vii.push_back(make_pair(u, v));
+        }
+        char str[100];
+        dfs(1 , 0 , 0);
+//        for(int i = 1 ; i <= N; i++)
+//            cout<<parent[i]<<" parent of "<<i<<endl;
+//        cout<<endl;
+        hld(1 , -1 , -1);
+        make_tree(1 , 0 , cnt);
+        lca_init();
+//        for(int i = 0; i < N ; i++)
+//            cout<<baseArray[i]<<" ";
+//        cout<<endl;
+        while(1)
+        {
+            scanf(" %s", str);//>>u>>v;
+            //cout<<str<<" "<<u<<" "<<v<<endl;
+            if(strcmp(str , "DONE")==0)
+                break;
+            scanf(" %d %d",&u , &v);
+            if(strcmp(str , "CHANGE")==0)
+            {
+                change(u - 1 , v);
+//                for(int i = 0; i < N; i++)
+//                    cout<<i<<" "
+            }
+            else if(strcmp(str , "QUERY")==0)
+            {
+                int res = query(u , v);
+                printf("%d\n",res);
+            }
+        }
+        for(int i = 0 ; i < MXN ; i++)
+        {
+            adj[i].clear();
+            costs[i].clear();
+        }
+        vii.clear();
+    }
+    return 0;}
+
+
+*******Bellman Ford************
+struct Edge
+{
+    int v, u, w;
+};
+vector< Edge > E;
+int dist[100];
+int n;
+void bellman( int s)
+{
+    for(int i = 0 ; i < n ; i++)
+    {
+        dist[i] = 999999999;
+    }
+    dist[s] = 0;
+    for(int i = 0 ; i < n-1 ; i++)
+    {
+        for(Edge e: E)
+        {
+            if(dist[e.v] > dist[e.u] + e.w)
+            {
+                dist[e.v] = dist[e.u] + e.w;
+            }
+        }
+    }
+    bool hasNegativeCycle = false;
+    for(Edge e:E)
+    {
+        if(dist[e.v] > dist[e.u] + e.w)
+            {
+                hasNegativeCycle = true;
+            }
+
+    }
+    printf("Negative Cycle Exist %s\n" , hasNegativeCycle ? "yes":"no");
+}
+
+*******Stable Mariage *******
+#include<bits/stdc++.h>
+    using namespace std;
+    vector<int> adj[205];
+    int likePoint[205][205] , N;
+    typedef pair< int , int > PII;
+    int couple[205];
+    void solve()
+    {
+        queue< PII > QP;
+        for(int i = 1 ; i <= N; i++)
+        {
+            QP.push(make_pair(i , 0));
+        }
+        while(!QP.empty())
+        {
+            PII u = QP.front();
+            QP.pop();
+            int sz = adj[u.first].size();
+            for(int i = u.second; i < sz; i++ )
+            {
+                int v = adj[u.first][i];
+                if(couple[v]==-1)
+                {
+                    couple[v] = u.first;
+                    break;
+                }
+                else
+                {
+                    if(likePoint[v][couple[v]] > likePoint[v][u.first])
+                    {
+                        QP.push(make_pair(couple[v] , likePoint[couple[v]][v]+1));
+                        couple[v] = u.first;
+                        break;
+                    }
+                }
+            }
+     
+        }
+    }
+    int main()
+    {
+        int tc;
+        scanf("%d",&tc);
+        int cs = 0;
+        while(tc--)
+        {
+            cs++;
+            scanf("%d", &N);
+            int tm =  N*2 , x , i , j;
+            for( i = 1 ; i <= tm ; i++ )
+            {
+                for( j = 0; j < N ; j++)
+                {
+                    scanf("%d",&x);
+                    adj[i].push_back(x);
+                }
+            }
+            for( i = 1;i <= tm; i++)
+            {
+                for( j = 0; j < N ; j++)
+                {
+                    likePoint[i][adj[i][j]] = j;
+                }
+            }
+            memset(couple , -1 , sizeof(couple));
+            solve();
+            printf("Case %d:", cs);
+            for(i = N+1; i <= tm; i++)
+                {
+                    printf(" (%d %d)",couple[i] , i);
+                }
+                printf("\n");
+            for( i = 0; i < 205; i++)
+                adj[i].clear();
+        }
+        return 0;
+    }
+
+************ 2nd best MST***********
+const int mxn = 1e5;
+int parent[mxn] , level[mxn];
+typedef long long ll;
+typedef pair< int , ll > pil;
+typedef vector< pil > vpil;
+pil sparse[mxn][22] ;
+vpil adj[mxn];
+ll mstCost , mstCount;
+bool vis[mxn];
+int n , m;
+struct node 
+{
+	int u ,v ;
+	ll w;
+};
+vector< node > gE , uE;
+bool operator <(node a , node b)
+{
+	return a.w < b.w;
+}
+void dfs(int u , int prev, ll cost , int depth)
+{
+	sparse[u][0].first = prev;
+	sparse[u][0].second = cost;
+	level[u] = depth;
+	for(int i = 0; i < adj[u].size(); i++)
+	{
+		int v = adj[u][i].first;
+		ll w = adj[u][i].second;
+		if(v != prev)
+		{
+			dfs(v , u , w , depth+1);
+		}
+	}
+} 
+void sparse_table()
+{
+	for(int j = 1; (1<<j) <= n; j++)
+	{
+		for(int i= 1; i <= n; i++)
+		{
+			if(sparse[i][j-1].first!=-1)
+			{
+				sparse[i][j].first = sparse[sparse[i][j-1].first][j-1].first;
+				sparse[i][j].second = max(sparse[i][j-1].second ,sparse[sparse[i][j-1].first][j-1].second);
+			}
+		}
+	}
+}
+ll query(int p , int q)
+{
+	if(level[p] < level[q])
+	{
+		swap(p , q);
+	}
+	int log = 1;
+	while( (1 <<log) <= level[p])
+	log++;
+	log-=1;
+	ll ret = INT_MIN;
+	for(int i  = log; i >=0; i--)
+	{
+		if( (level[p] -(1<<i)) >= level[q])
+		{
+			ret = max(ret , sparse[p][i].second);
+			p = sparse[p][i].first;
+		}
+	}
+	if(p==q)
+	return ret;
+	for(int i = log; i >= 0; i--)
+	{
+		if(sparse[p][i].first!= -1 && sparse[q][i].first!=-1 && sparse[p][i].first != sparse[q][i].first)
+		{
+			ret = max(ret , max(sparse[p][i].second , sparse[q][i].second));
+			p = sparse[p][i].first;
+			q = sparse[q][i].first;
+		}
+	}
+	ret = max(ret , max(sparse[p][0].second , sparse[q][0].second));
+	return ret;
+}
+int find(int u)
+{
+	if(parent[u]==u)
+	return u;
+	return parent[u] = find(parent[u]);
+}
+void krs()
+{
+	for(int i= 0; i < mxn ; i++)
+	parent[i] = i;
+	sort(gE.begin() , gE.end());
+	for(int i = 0; i < gE.size(); i++)
+	{
+		if(find(gE[i].u) != find(gE[i].v))
+		{
+			mstCost +=gE[i].w;
+			mstCount+=1;
+			parent[parent[gE[i].u]] = parent[gE[i].v];
+			vis[i] = true;
+		}
+	}
+}
+int main()
+{
+	int tc;
+	cin>>tc;
+	int cs = 0;
+	while(tc--)
+	{
+		cs++;
+		gE.clear();
+		uE.clear();
+		for(int i = 0; i < mxn; i++)
+		adj[i].clear();
+		memset(sparse , -1 , sizeof sparse);
+		memset(level , 0 , sizeof level);
+		mstCost = 0;
+		mstCount = 0;
+		memset(vis , false , sizeof vis);
+	}
+	
+	return 0;
+}
+
+
+#################### DS ####################
+*********Segment Tree*********
+Lazy Propagation:
+using namespace std;
+ 
+const int MXN = 100005;
+ 
+struct data
+{
+  long long int sum , propV;
+  bool propBool;
+  data()
+  {
+      propBool = false;
+      propV = 0;
+      sum = 0;
+  }
+}tree[4*MXN + 5];
+void updatechild(int node , int left, int right , int beg ,int mid , int endd)
+{
+    tree[left].sum = (mid - beg +1)*tree[node].propV;
+    tree[right].sum = (endd - mid)*tree[node].propV;
+    tree[left].propV = tree[node].propV;
+    tree[right].propV = tree[node].propV;
+    tree[left].propBool = true;
+    tree[right].propBool = true;
+    tree[node].propBool = false;
+    tree[node].propV = 0;
+    return;
+}
+data Merge(data l , data r)
+{
+    data ret;
+    ret.sum = l.sum + r.sum;
+    ret.propV = 0;
+    ret.propBool = false;
+    return ret;
+}
+void update(int node , int beg , int endd , int i , int j , int val)
+{
+    if(i > j)
+        return;
+    if(beg==i&&endd ==j)
+    {
+        //cout<<(endd - beg + 1)*val<<" "<<beg<<" "<<endd<<endl;
+        tree[node].sum = (endd - beg + 1)*val;
+        tree[node].propBool = true;
+        tree[node].propV = val;
+        return;
+    }
+ 
+    int left = node << 1;
+    int right = left + 1;
+    int mid = (beg + endd) >> 1;
+ 
+    if(tree[node].propBool)
+    {
+        updatechild(node , left, right, beg, mid , endd);
+    }
+    update(left , beg , mid , i , min( j , mid), val);
+    update(right , mid+1 , endd , max(i , mid+1) , j, val);
+    tree[node] = Merge(tree[left] , tree[right]);
+    return;
+}
+long long int query( int node , int beg , int endd , int i , int j)
+{
+    if(i > j)
+        return 0;
+    if(beg==i &&endd==j)
+    {
+        return tree[node].sum;
+    }
+ 
+    int left = node << 1;
+    int right = left + 1;
+    int mid = (beg + endd) >> 1;
+    if(tree[node].propBool)
+    {
+        updatechild(node , left, right, beg, mid , endd);
+    }
+    long long int l = query( left , beg , mid , i , min(mid , j));
+    long long int r = query( right , mid+1 , endd , max(mid+1 , i) , j);
+   // cout<<"out "<<l<<" "<<r<<" "<<beg<<" "<<mid<<" "<<endd<<endl;
+    return l+r;
+}
+Sum on a segment:
+struct data {
+	int sum, pref, suff, ans;
+};
+ 
+data combine (data l, data r) {
+	data res;
+	res.sum = l.sum + r.sum;
+	res.pref = max (l.pref, l.sum + r.pref);
+	res.suff = max (r.suff, r.sum + l.suff);
+	res.ans = max (max (l.ans, r.ans), l.suff + r.pref);
+	return res;
+}
+data make_data (int val) {
+	data res;
+	res.sum = val;
+	res.pref = res.suff = res.ans = max (0, val);
+	return res;
+}
+void build (int a[], int v, int tl, int tr) {
+	if (tl == tr)
+		t[v] = make_data (a[tl]);
+	else {
+		int tm = (tl + tr) / 2;
+		build (a, v*2, tl, tm);
+		build (a, v*2+1, tm+1, tr);
+		t[v] = combine (t[v*2], t[v*2+1]);
+	}
+}
+void update (int v, int tl, int tr, int pos, int new_val) {
+	if (tl == tr)
+		t[v] = make_data (new_val);
+	else {
+		int tm = (tl + tr) / 2;
+		if (pos <= tm)
+			update (v*2, tl, tm, pos, new_val);
+		else
+			update (v*2+1, tm+1, tr, pos, new_val);
+		t[v] = combine (t[v*2], t[v*2+1]);
+	}
+}
+data query (int v, int tl, int tr, int l, int r) {
+	if (l == tl && tr == r)
+		return t[v];
+	int tm = (tl + tr) / 2;
+	if (r <= tm)
+		return query (v*2, tl, tm, l, r);
+	if (l > tm)
+		return query (v*2+1, tm+1, tr, l, r);
+	return combine (
+		query (v*2, tl, tm, l, tm),
+		query (v*2+1, tm+1, tr, tm+1, r)
+	);
+}
+Find a smallest number greater or equal than a given number:
+vector<int> t[4*MAXN];
+ 
+void build (int a[], int v, int tl, int tr) {
+	if (tl == tr)
+		t[v] = vector<int> (1, a[tl]);
+	else {
+		int tm = (tl + tr) / 2;
+		build (a, v*2, tl, tm);
+		build (a, v*2+1, tm+1, tr);
+		merge (t[v*2].begin(), t[v*2].end(), t[v*2+1].begin(), t[v*2+1].end(),
+			back_inserter (t[v]));
+	}
+}
+int query (int v, int tl, int tr, int l, int r, int x) {
+	if (l > r)
+		return INF;
+	if (l == tl && tr == r) {
+		vector<int>::iterator pos = lower_bound (t[v].begin(), t[v].end(), x);
+		if (pos != t[v].end())
+			return *pos;
+		return INF;
+	}
+	int tm = (tl + tr) / 2;
+	return min (
+		query (v*2, tl, tm, l, min(r,tm), x),
+		query (v*2+1, tm+1, tr, max(l,tm+1), r, x)
+	);
+}
+void update (int v, int tl, int tr, int pos, int new_val) {
+	t[v].erase (t[v].find (a[pos]));
+	t[v].insert (new_val);
+	if (tl != tr) {
+		int tm = (tl + tr) / 2;
+		if (pos <= tm)
+			update (v*2, tl, tm, pos, new_val);
+		else
+			update (v*2+1, tm+1, tr, pos, new_val);
+	}
+	else
+		a[pos] = new_val;
+}
+
+2D segment tree:
+ int ar[MXN][MXN];
+int n , m;
+ 
+struct data
+{
+    int subTree[4*MXN], base[MXN];
+    void make_subtree(int node , int beg , int endd)
+    {
+       if(beg==endd)
+       {
+           subTree[node] = base[beg];
+           return;
+       }
+ 
+       int left = node << 1;
+       int mid = (beg+ endd) >> 1;
+ 
+       make_subtree(left , beg , mid);
+       make_subtree(left+1 , mid+1 , endd);
+ 
+       subTree[node] = max( subTree[left] , subTree[left+1]);
+       return;
+    }
+    int query_subtree(int node , int beg , int endd , int i , int j)
+    {
+        if(i > j)
+            return -1;
+        if(beg==i && endd==j)
+        {
+            return subTree[node];
+        }
+ 
+        int left = node << 1;
+        int mid = (beg + endd) >> 1;
+ 
+        int l =  query_subtree(left , beg , mid , i , min(j , mid));
+        int r = query_subtree(left+1 , mid+1 , endd , max(i , mid+1) , j );
+ 
+        return max(l , r);
+    }
+} tree[4*MXN];
+void merge_tree(int node , int left , int right)
+{
+    for(int i = 1; i <= n ; i++)
+    {
+        tree[node].base[i] = max(tree[left].base[i], tree[right].base[i]);
+    }
+    tree[node].make_subtree(1 , 1 , n);
+    return;
+}
+void make_tree(int node , int beg , int endd)
+{
+    if(beg==endd)
+    {
+        for(int i = 1; i <= n ; i++)
+            tree[node].base[i] = ar[beg][i];
+        tree[node].make_subtree(1 , 1 , n);
+        return;
+    }
+ 
+    int left = node<<1;
+    int mid = (beg+ endd) >> 1;
+ 
+    make_tree(left, beg , mid);
+    make_tree(left+1 , mid+1 , endd);
+    merge_tree(node , left , left+1);
+    return;
+}
+int query_tree(int node , int beg , int endd, int ri , int rj , int ci , int cj)
+{
+    //cout<<node<<" "<<beg<<" "<<endd<<" "<<ri<<" "<<rj<<" "<<ci<<" "<<cj<<endl;
+    if(ri > rj)
+        return -1;
+    if(beg == ri && endd== rj)
+    {
+        return tree[node].query_subtree(1 , 1 , n , ci , cj);
+    }
+ 
+    int left = node << 1;
+    int mid = (beg + endd) >> 1;
+ 
+    int l = query_tree(left , beg , mid , ri , min(rj , mid) , ci , cj);
+    int r = query_tree(left+1 , mid+1 , endd , max(ri , mid+1) , rj, ci , cj);
+    //cout<<l<<" "<<r<<" "<<beg<<" "<<endd<<endl;
+    return max(l , r);
+}
+ 
+LCA:
+
+const int MXN = 100002;
+int parent[MXN] , level[MXN] , sparse[MXN][22];
+vector<int > tree[MXN];
+
+int dfs(int u , int babamaa , int depth)
+{
+    parent[u] = babamaa;
+    level[u] = depth;
+    int sz = (int)tree[u].size();
+    for(int i = 0; i < sz ; i++)
+    {
+        int v = tree[u][i];
+        if(v == babamaa)
+            continue;
+        dfs(v , u, depth+1);
+    }
+}
+
+void lca_init(int N)
+{
+    memset(sparse , -1 , sizeof(sparse));
+    for(int i = 0; i < N; i++)
+        sparse[i][0] = parent[i];
+    for(int j = 1; 1<<j < N ; j++)
+    {
+        for(int i = 0 ; i < N; i++)
+        {
+            if(sparse[i][j-1]!=-1)
+            {
+                sparse[i][j] = sparse[sparse[i][j-1]][j-1];
+            }
+        }
+    }
+}
+
+int lca_query(int N , int p , int q)
+{
+    if(level[p]<level[q])
+        swap(p,q);
+    int log = 1;
+    while(1)
+    {
+        if(1 << log > level[p])
+            break;
+        log++;
+    }
+    log -=1;
+    for(int i = log; i>=0 ; i--)
+    {
+        if((level[p] - (1 << i)) >= level[q] )
+        {
+            p = sparse[p][i];
+        }
+    }
+    if(p==q)
+        return p;
+    for(int i = log ; i>= 0; i--)
+    {
+        if(sparse[p][i] != -1 && sparse[p][i] != sparse[q][i])
+        {
+            p = sparse[p][i];
+            q = sparse[q][i];
+        }
+    }
+    return parent[p];
+}
+
+TRIE:
+struct node
+{
+	bool endMark;
+	node * next[27];
+	node ()
+	{
+		endMark = false;
+		for(int i = 0; i < 26; i++)
+		{
+			next[i] = NULL;
+		}
+	}
+ } *root;
+void inser(string str)
+{
+	int sz = str.size();
+	node *curr = root;
+	for(int i = 0; i < sz ; i++)
+	{
+		int id = str[i] - 'a';
+		if(curr->next[id]==NULL)
+		{
+			curr->next[id] = new node();
+		}
+		curr = curr->next[id];
+	}
+	curr->endMark = true;
+}
+
+bool search(string str)
+{
+	int sz = str.size();
+	node *current = root;
+	for(int i = 0;i < sz ; i++)
+	{
+		int id = str[i] - 'a';
+		if(current->next[id] == NULL)
+		{
+		return false;
+	    }
+		current = current->next[id];
+	}
+	return current->endMark;
+}
+void del(node *current)
+{
+	for(int i = 0; i < 26; i++)
+	{
+		if(current->next[i] != NULL)
+		{
+			del(current->next[i]);
+		}
+	}
+	delete(current);
+}
+
+
+*********2D BIT******
+const int mxn = 1008;
+int bit[mxn+3][mxn+3];
+bool vis[mxn+3][mxn+3];
+void update(int idx , int idy , int v)
+{
+    int x = idx;
+    while(x <= mxn)
+    {
+        int y = idy;
+        while( y <= mxn)
+        {
+            bit[x][y] +=v;
+            y += (y&-y);
+        }
+        x += (x&-x);		
+    }
+}
+int query(int idx ,int idy)
+{
+    int ret = 0;
+    int x = idx;
+    while(x)
+    {
+        int y = idy;
+        while(y)
+        {
+            ret += bit[x][y];
+            y -= (y&-y);
+        }
+        x -= (x&-x);
+    }
+    return ret;
+}
+int solve(int x1 , int y1 , int x2 , int y2)
+{
+    int ans = query(x2 , y2) - query(x2 , y1-1) - query(x1-1 , y2) + query(x1-1 , y1-1);
+    return ans;
+}
+
+*********** 1D RMQ ***********
+const int mxn = 1e5;
+#define MOD 1e9+7
+int n , m;
+int ar[mxn+10];
+int table[20][mxn+10];
+void RMQ()
+{
+	for(int ir = 0; ir < n; ir++)
+	{
+		table[0][ir] = ar[ir];
+	}
+	for(int jr = 1 ; (1<<jr) <= n; jr++)
+	{
+		for(int ir = 0; ir + (1<<jr)-1 < n ; ir++)
+		{
+			table[jr][ir] = min(table[jr-1][ir] , table[jr-1][ir+(1<<(jr-1))]);
+		}
+	}
+}
+int query(int x , int y)
+{
+	int len = y-x+1;
+	len = log(double(len))/log(2.0D);
+	return min( table[len][x] , table[len][y+1- (1<<len)]);
+}
+
+
+*********** 2D RMQ ***********
+typedef long long ll;
+typedef pair< int , int > pii;
+typedef vector< int > vi;
+
+#define rept(i , n) for(int i = 0;  i < n ; i++)
+#define loop(i, n) for(int i = 1;  i <= n ; i++)
+
+const int mxn = 1e3;
+#define MOD 1e9+7
+int ar[mxn+10][mxn+10] ;
+int spTable[12][12][mxn+10][mxn+10];
+int n ,m;
+ll sum[mxn+10][mxn+10];
+void RMQ()
+{
+	for(int jr =0; (1 << jr) <= n; jr++)
+	{
+		for(int jc = 0; (1 << jc) <= m ; jc++)
+		{
+			for(int ir = 0; ir+(1<<jr)-1 < n; ir++)
+			{
+				for(int ic =0; ic+(1<<jc)-1 < m; ic++)
+				{
+					if(jr==0 && jc == 0)
+					{
+						spTable[jr][jc][ir][ic] = ar[ir][ic];
+					}
+					else if(jr==0)
+					{
+						spTable[jr][jc][ir][ic] = max( spTable[jr][jc-1][ir][ic] , spTable[jr][jc-1][ir][ic+(1<<(jc-1))]);
+					}
+					else if(jc==0)
+					{
+						spTable[jr][jc][ir][ic] = max( spTable[jr-1][jc][ir][ic] , spTable[jr-1][jc][ir+(1<<(jr-1))][ic]);
+					}
+					else
+					{
+						spTable[jr][jc][ir][ic] = max( spTable[jr-1][jc-1][ir][ic], max( spTable[jr-1][jc-1][ir + (1<<(jr-1))][ic],max(spTable[jr-1][jc-1][ir][ic+(1<<(jc-1))] , spTable[jr-1][jc-1][ir+(1<<(jr-1))][ic+(1<<(jc-1))])));
+					}
+				}
+			}
+		}
+	} 
+}
+ll query(int x1 , int y1 , int x2, int y2)
+{
+	int lenx = x2 - x1+1;
+	int leny = y2 - y1 + 1;
+	lenx = log( (double)lenx)/log(2.0D);
+	leny = log((double)leny) / log(2.0D);
+	ll ans = max( (long long)spTable[lenx][leny][x1][y1] ,(long long) spTable[lenx][leny][x1][y2+1-(1<<leny)]);
+	ans = max( ans ,(long long) max( (long long)spTable[lenx][leny][x2+1-(1<<lenx)][y1] , (long long)spTable[lenx][leny][x2+1-(1 << lenx)][y2+1-(1 << leny)]));
+	return ans;
+}
+
+******** Sqrt Decomposition *******
+const int mxn = 100000;
+struct data
+{
+	int st , en;
+	deque<int > dq;
+	int fr[mxn+3];
+} backet[325];
+int ar[mxn+3] , bcnt ;
+int const lm = 1500;
+void decomposition(int n)
+{
+	bcnt = 0;
+	for(int i =0 , c = 0; i <  n ; i++, c++)
+	{
+		if(c==lm)
+		{
+			backet[bcnt].en = i-1;
+			c = 0;
+			bcnt++;
+			backet[bcnt].st = i;
+		}
+		backet[bcnt].dq.push_back(ar[i]);
+		backet[bcnt].fr[ar[i]]++;
+	}
+	backet[bcnt].en = n-1;
+}
+void update(int l , int r)
+{
+	int lb = (int)l/lm;
+	int rb = (int) r/lm;
+	int val = backet[rb].dq[r-backet[rb].st];
+	backet[rb].dq.erase( backet[rb].dq.begin()+ r%lm);
+	backet[rb].fr[val]--;
+	backet[lb].dq.insert(backet[lb].dq.begin()+l%lm, val);
+	backet[lb].fr[val]++;
+	for(int i = lb+1; i <= rb; i++)
+	{
+		backet[i].dq.push_front(backet[i-1].dq.back());
+		backet[i].fr[backet[i].dq.front()]++;
+		backet[i-1].fr[backet[i].dq.front()]--;
+		backet[i-1].dq.pop_back();
+	}
+}
+int query(int l , int r , int k)
+{
+	int lb = (int) l/lm;
+	int rb = (int) r/lm;
+	int ret = 0;
+	for(int i = l - backet[lb].st; i <= min( backet[lb].en - backet[lb].st  , r - backet[lb].st); i++)
+	{
+		ret +=(backet[lb].dq[i]==k);
+	}
+	if(lb!=rb){
+	for(int i = 0; i <= r - backet[rb].st; i++)
+	{
+		ret += (backet[rb].dq[i]==k);
+	}
+	for(int i = lb+1; i < rb; i++)
+	{
+		ret += backet[i].fr[k];
+	}
+}
+	return ret;
+	
+}
+
+********************* MO’s *************
+			int left = 0;
+			int right = -1;			
+			while(right < p.first)
+			{
+				right++;
+				add(right);
+			}
+			while(right > p.first)
+			{
+				remov(right);
+				right--;
+			}
+			while(left< p.second)
+			{
+				
+				remov(left);
+				left++;
+			}
+			
+			while(left > p.second)
+			{
+				left--;
+				add(left);
+			}
+************* Implicit Segment Tree********
+typedef long long ll;
+const ll mod = 1e9+7;
+struct NODE
+{
+	ll sum;
+	NODE* left , *right;
+	NODE()
+	{
+		left = NULL;
+		right = NULL;
+		sum = 0;
+	}
+};
+
+void update(NODE *node , ll beg , ll endd , ll pos , ll val)
+{
+	if(beg==pos&&endd==pos)
+	{
+		node->sum =val;
+		return;
+	}
+	ll mid = (beg + endd)>>1;
+	if(node->left==NULL)
+	{
+		node->left = new NODE();
+	}
+	if(node->right==NULL)
+	{
+		node->right = new NODE();
+	}
+	if(pos <= mid)
+		update(node->left, beg , mid , pos , val);
+	else
+	{
+		update(node->right, mid+1, endd , pos , val);
+	}
+	node->sum = node->left->sum + node->right->sum;
+	return;
+}
+ll query(NODE* node , ll beg ,ll endd, ll l , ll r)
+{
+	if(node == NULL || l > r)
+	return 0;
+	if(l==beg && endd==r)
+	return node->sum;
+	ll mid = (beg+endd)>>1;
+	ll r1 =query(node->left , beg, mid, l , min(mid,r));
+	ll r2= query(node->right, mid+1, endd, max(l, mid+1), r);
+	return r1+r2;
+}
+
+
+Game Theory:
+****** Grundy ******
+int g[10005], pile[110];
+ 
+int Mex( set<int> s)
+{
+    int mex = 0;
+    while(s.find(mex)!=s.end())
+        mex++;
+    return mex;
+}
+ 
+int Grundy(int n)
+{
+    if(g[n]!=-1)
+        return g[n];
+    int mid = (n+1)/2;
+    set<int > s;
+    for(int i = 1; i < mid ; i++)
+    {
+        s.insert( Grundy(i)^Grundy(n-i));
+    }
+    g[n] = Mex(s);
+    return g[n];
+}
+
+String Matching Algorithm:
+KVM:
+const int mxn = 100000;
+int pi[mxn];
+string pattern , givenString;
+int patternLength ,givenStringLength , patternCount;
+void buildPatternArray()
+{
+	int j = 0;
+	pi[0] = 0;
+	for(int i = 1; i < patternLength; i++)
+	{
+		while(j>0 && pattern[j]!=pattern[i])
+		{
+			j = pi[j-1];
+		}
+		if(pattern[j]==pattern[i]){
+		pi[i] = j+1;
+		j++;
+	}
+		else{
+		pi[i]=0;
+		j = 0;
+	}
+	}
+}
+
+void patternMatching()
+{
+	int j = 0;
+	for(int i = 0; i < givenStringLength; i++)
+	{
+		while( j > 0 && pattern[j]!=givenString[i])
+		{
+			j = pi[j-1];
+		}
+		if(j+1 == patternLength)
+		{
+			patternCount ++;
+			j = pi[j];
+		}
+		else
+		{
+			if(pattern[j]==givenString[i])
+			j++;
+		}
+		cout<<j<<" "<<i<<endl;
+		
+	}
+}
+
+************ Digit DP *************
+typedef long long ll;
+vector< int > inp;
+ll n , m;
+ll dp[25][2][2][25];
+int vis[25][2][2][25];
+int lim , tt;
+ll digitDP(int pos, bool isstart,bool issmall,int value)
+{
+	if(pos == lim)
+	return value;
+	ll &ret = dp[pos][isstart][issmall][value];
+	int &v = vis[pos][isstart][issmall][value];
+	if(v == tt)
+	return ret;
+	v = tt;
+	ret = 0;
+	int ses = issmall?9:inp[pos];
+	
+	if(isstart)
+	{
+		for(int i = 0; i <= ses; i++)
+		{
+			ret +=digitDP(pos+1 , true , issmall|i < inp[pos] , (i==0)+value);
+		}
+	}
+	else
+	{
+		ret +=digitDP(pos+1 , false , true , 0);
+		for(int i = 1; i <= ses; i++)
+		{
+			ret += digitDP(pos+1 , true , issmall|i < inp[pos] ,(i==0)+value);
+		}
+	}
+	
+	return ret;
+	
+}
+
+ll solve(ll n)
+{
+	if(n<0)
+	return 0;
+	if(n<=9)
+	return 1;
+	inp.clear();
+	while(n)
+	{
+		inp.push_back(n%10);
+		n/=10;
+	}
+	reverse(inp.begin() , inp.end());
+	lim = inp.size();
+	tt++;
+	return digitDP(0 , false, false , 0)+1;
+}
+******* Mat. Expo****
+const int mxn = 2;
+typedef unsigned long long ull;
+struct Matrix
+{
+	ull mat[mxn][mxn];
+};
+Matrix mul(Matrix a , Matrix b)
+{
+	Matrix ans;
+	for(int i = 0; i < mxn; i++)
+	{
+		for(int j = 0; j < mxn; j++)
+		{
+			ans.mat[i][j] = 0;
+			for(int k = 0; k < mxn; k++)
+			{
+				ans.mat[i][j] += a.mat[i][k]*b.mat[k][j];
+			}
+		}
+	}
+	return ans;
+}
+Matrix expo(Matrix base , int p)
+{
+	if(p==0)
+	{
+		Matrix ret;
+		for(int i = 0; i < mxn; i++)
+		{
+			for(int j = 0; j < mxn; j++)
+			{
+				ret.mat[i][j] = (i==j);
+			}
+		}
+		return ret;
+	}
+	Matrix x = expo(base , p/2);
+	x= mul(x , x);
+	if(p&1)
+	{
+		x = mul(x , base);
+	}
+	return x;
+}
+
+MATH:
+*********** EGCD **********
+void extendedEuclid(int A, int B) {
+    if(B == 0) {
+        d = A;
+        x = 1;
+        y = 0;
+    }
+    else {
+        extendedEuclid(B, A%B);
+        int temp = x;
+        x = y;
+        y = temp - (A/B)*y;
+    }
+}
+
